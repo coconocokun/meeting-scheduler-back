@@ -32,11 +32,7 @@ export function getMeetingInfo(id: number) {
   };
 }
 
-export function createPreferredTime(
-  meetingId: number,
-  name: string,
-  preferredTime: number[]
-) {
+export function createPreferredTime(meetingId: number, name: string, preferredTime: number[]) {
   // TODO Send SQL query to insert preferred time data to the meeting
   return;
 }
@@ -44,4 +40,13 @@ export function createPreferredTime(
 export function finalDecision(meetingId: number, decidedTime: number[]) {
   // TODO Send SQL query to the DB
   return;
+}
+
+export function checkLogin(meetingId: number, user: string, password: string) {
+  // TODO Check SQL
+  if (user == "gavin" && password == "1234") {
+    return true;
+  } else {
+    return false;
+  }
 }
