@@ -9,7 +9,7 @@ declare module "express-session" {
     authenticated?: boolean;
     user?: {
       name: string;
-      password: string;
+      role: string;
     };
   }
 }
@@ -18,19 +18,17 @@ const app = express();
 const corsOptions = {
   origin: "*",
 };
-const store = new session.MemoryStore();
 
-app.use(bodyParser.json());
-app.use(cors(corsOptions));
 app.use(
   session({
-    secret: "veryveryimportantsecretekey",
-    resave: true,
+    secret: "veryverysecurecode",
+    resave: false,
     saveUninitialized: true,
     cookie: { maxAge: 30000 },
-    store: store,
   })
 );
+app.use(bodyParser.json());
+app.use(cors(corsOptions));
 
 app.get("/hello", (req, res) => {
   // Do whatever you want
@@ -86,39 +84,28 @@ app.post("/:meetingId/finalDecision", (req, res) => {
   return res.status(201).send();
 });
 
-app.post("/login", (req, res) => {
-  console.log(req.sessionID);
-  console.log(store);
+app.post("/:meetingId/login", (req, res) => {
+  const meetingId = req.params.meetingId;
   const { user, password } = req.body;
+  console.log(req.sessionID);
 
   if (user && password) {
     if (req.session.authenticated) {
       return res.status(201).send(req.session);
     } else {
-      // Check if the user & password exists in the database
-      // If true: return the authenticated info
-      // If false: return the error message
-      if (checkLogin(123, user, password)) {
+      if (checkLogin(parseInt(meetingId), user, password)) {
         req.session.authenticated = true;
         req.session.user = {
           name: user,
-          password: password,
+          role: "host",
         };
         return res.status(201).send(req.session);
       } else {
         return res.status(403).send({ error: "Bad authentication" });
       }
     }
-  }
-
-  return res.status(201).send({ status: "logged in" });
-});
-
-app.get("/authenticated", (req, res) => {
-  if (req.session.authenticated) {
-    return res.status(200).send({ status: "authenticated" });
   } else {
-    return res.status(403).send({ status: "Unauthenticated" });
+    return res.status(403).send({ error: "Bad authentication" });
   }
 });
 
