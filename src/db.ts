@@ -8,7 +8,7 @@ export async function createMeeting(
   meetingLength: number,
   hostName: string,
   hostPassword: string,
-  preferredTime: number[]
+  preferredTime: string
 ) {
   // 1. Insert meeting
   const [rows, _] = await pool.execute(
@@ -26,15 +26,28 @@ export async function createMeeting(
   return meetingId;
 }
 
-export function changeMeeting(
+export async function changeMeeting(
+  pool: Pool,
   meetingId: number,
   title: string,
   description: string,
   timezone: string,
+  meetingLength: number,
   hostName: string,
-  preferredTime: number[]
+  preferredTime: string
 ) {
-  // TODO Send SQL to the DB
+  const [mrows, _] = await pool.execute(
+    "UPDATE meeting SET title = ?, description = ?, timezone = ?, meeting_length = ? WHERE id = ?",
+    [title, description, timezone, meetingLength, meetingId]
+  );
+
+  // host --> id, name, password, preferred_time, meeting_id
+  const [hrows, __] = await pool.execute("UPDATE host SET name = ?, preferred_time = ? WHERE meeting_id = ?", [
+    hostName,
+    preferredTime,
+    meetingId,
+  ]);
+
   return;
 }
 
@@ -47,8 +60,6 @@ export async function getMeetingInfo(pool: Pool, id: number) {
   const [hrows, __] = await pool.execute("SELECT name, preferred_time FROM host WHERE meeting_id = ?", [id]);
   const host = (hrows as any)[0];
 
-  // TODO 3. Get guest info from guest table
-
   return {
     ...meeting,
     host: {
@@ -57,8 +68,7 @@ export async function getMeetingInfo(pool: Pool, id: number) {
   };
 }
 
-export async function createPreferredTime(pool: Pool, meetingId: number, name: string, preferredTime: number[]) {
-  // TODO Send SQL query to insert preferred time data to the meeting
+export async function createPreferredTime(pool: Pool, meetingId: number, name: string, preferredTime: string) {
   // 1. Insert guest data into guest table
   const [rows, _] = await pool.execute("INSERT INTO guest (name, meeting_id, preferred_time) VALUES (?, ?, ?)", [
     name,
@@ -74,7 +84,6 @@ export function finalDecision(meetingId: number, decidedTime: number[]) {
 }
 
 export async function checkLogin(pool: Pool, meetingId: number, user: string, password: string) {
-  // TODO Check SQL
   const [rows, _] = await pool.execute("SELECT * FROM host WHERE name = ? AND password = ? AND meeting_id = ?", [
     user,
     password,

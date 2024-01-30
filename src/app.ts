@@ -5,6 +5,12 @@ import session from "express-session";
 import { changeMeeting, checkLogin, createMeeting, createPreferredTime, finalDecision, getMeetingInfo } from "./db";
 import mysql from "mysql2";
 import "dotenv/config";
+import {
+  validateChangeMeetingInput,
+  validateCreateMeetingInput,
+  validateHostLogintInput,
+  validatePreferredTimeInput,
+} from "./validator";
 
 declare module "express-session" {
   interface SessionData {
@@ -52,14 +58,29 @@ app.use(cors(corsOptions));
 
 app.get("/hello", async (req, res) => {
   // Do whatever you want
-  const [rows, _] = await promisePool.query("SELECT id, title FROM meeting");
-  console.log(rows);
+  let regex: RegExp = /^[A-Za-z0-9 ]{3,200}$/;
+  const valid = regex.test("");
   return res.status(200).send({
-    rows: rows,
+    valid: valid,
   });
 });
 
 app.post("/createMeeting", async (req, res) => {
+  if (
+    !validateCreateMeetingInput(
+      req.body.title,
+      req.body.timezone,
+      req.body.meetingLength,
+      req.body.hostName,
+      req.body.hostPassword,
+      req.body.hostPreferredTime
+    )
+  ) {
+    return res.status(403).send({
+      error: "Invalid input",
+    });
+  }
+
   const meetingId = await createMeeting(
     promisePool,
     req.body.title,
@@ -83,12 +104,17 @@ app.get("/:meetingId/meetingInfo", async (req, res) => {
 });
 
 app.post("/:meetingId/preferredTime", async (req, res) => {
+  if (!validatePreferredTimeInput(req.body.name, req.body.preferredTime)) {
+    return res.status(403).send({
+      error: "Invalid input",
+    });
+  }
   const meetingId = req.params.meetingId;
   await createPreferredTime(promisePool, parseInt(meetingId), req.body.name, req.body.preferredTime);
   return res.status(201).send();
 });
 
-app.put("/:meetingId/changeMeeting", (req, res) => {
+app.put("/:meetingId/changeMeeting", async (req, res) => {
   const meetingId = req.params.meetingId;
 
   if (
@@ -97,18 +123,31 @@ app.put("/:meetingId/changeMeeting", (req, res) => {
     req.session.user.meetingId == parseInt(meetingId) &&
     req.session.user.role == "host"
   ) {
-    // TODO Change meeting table on SQL
-    changeMeeting(
+    if (
+      !validateChangeMeetingInput(
+        req.body.title,
+        req.body.timezone,
+        req.body.meetingLength,
+        req.body.hostName,
+        req.body.hostPreferredTime
+      )
+    ) {
+      return res.status(403).send({
+        error: "Invalid input",
+      });
+    }
+
+    await changeMeeting(
+      promisePool,
       parseInt(meetingId),
       req.body.title,
       req.body.description,
       req.body.timezone,
+      req.body.meetingLength,
       req.body.hostName,
       req.body.hostPreferredTime
     );
-    return res.status(200).send({
-      id: meetingId,
-    });
+    return res.status(201).send({});
   } else {
     return res.status(403).send({
       error: "Bad authentication",
@@ -122,9 +161,15 @@ app.post("/:meetingId/finalDecision", (req, res) => {
   return res.status(201).send();
 });
 
-app.post("/:meetingId/login", async (req, res) => {
+app.post("/:meetingId/hostLogin", async (req, res) => {
   const meetingId = req.params.meetingId;
   const { user, password } = req.body;
+
+  if (!validateHostLogintInput(user, password)) {
+    return res.status(403).send({
+      error: "Invalid input",
+    });
+  }
 
   if (user && password) {
     if (req.session.authenticated) {
@@ -147,14 +192,6 @@ app.post("/:meetingId/login", async (req, res) => {
   }
 });
 
-app.get("/checkAuthed", (req, res) => {
-  if (req.session.authenticated == true) {
-    return res.status(200).send({ status: "Logged in!. Good..." });
-  } else {
-    return res.status(403).send({ status: "Not logged in. Too bad..." });
-  }
-});
-
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+app.listen(5000, () => {
+  console.log("Server running on http://localhost:5000");
 });
